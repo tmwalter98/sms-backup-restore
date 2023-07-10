@@ -16,7 +16,7 @@ jobs:
       - name: Create image URL
         id: image_url
         run: |
-          echo "ecr_repository_url=${{ secrets.AWS_ECR_REGISTRY_URL }}/${{ env.ECR_IMAGE_NAME }}" >> "$GITHUB_ENV"
+          echo "ecr_repository_url=${{ secrets.AWS_ECR_REGISTRY_URL }}/$ECR_IMAGE_NAME" >> "$GITHUB_ENV"
           echo ${{ env.ecr_repository_url }}
 
       - name: Configure AWS credentials
@@ -32,8 +32,8 @@ jobs:
 
       - name: Build and push Docker image
         run: |
-          docker build -t ${{ env.ECR_IMAGE_NAME }} .
-          docker tag ${{ env.ECR_IMAGE_NAME }}:latest ${{ env.ecr_repository_url }}:${{ github.sha }}
+          docker build -t $ECR_IMAGE_NAME .
+          docker tag $ECR_IMAGE_NAME:latest ${{ env.ecr_repository_url }}:${{ github.sha }}
           docker push ${{ env.ecr_repository_url }}:${{ github.sha }}
 
       - name: Update Lambda function
