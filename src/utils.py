@@ -1,8 +1,8 @@
 import copy
-from lxml import etree
 import json
-import boto3
 
+import boto3
+from lxml import etree
 
 rds_client = boto3.client('rds')
 secrets_manager_client = boto3.client('secretsmanager')

@@ -6,3 +6,4 @@ pydantic-extra-types
 psycopg2-binary
 pydantic
 phonenumbers
+aws-lambda-powertools

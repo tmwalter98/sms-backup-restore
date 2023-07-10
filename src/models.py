@@ -1,24 +1,13 @@
-from typing import Optional
 import uuid
-from sqlalchemy import (
-    UUID,
-    ForeignKey,
-    Column,
-    Integer,
-    String,
-    DateTime,
-    Boolean,
-    ForeignKey,
-    Enum,
-)
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
 from datetime import datetime
-from sqlalchemy.orm import relationship
-from sqlalchemy_utils.types.phone_number import PhoneNumberType
-from sqlalchemy_utils import URLType
-from sqlalchemy import event
+from typing import Optional
 
+from sqlalchemy import (UUID, Boolean, Column, DateTime, Enum, ForeignKey,
+                        Integer, String, event)
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import relationship, sessionmaker
+from sqlalchemy_utils import URLType
+from sqlalchemy_utils.types.phone_number import PhoneNumberType
 
 # Define the SQLAlchemy model
 Base = declarative_base()
