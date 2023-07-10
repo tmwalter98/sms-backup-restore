@@ -1,0 +1,8 @@
+boto3
+lxml
+sqlalchemy
+sqlalchemy-utils
+pydantic-extra-types
+psycopg2-binary
+pydantic
+phonenumbers
