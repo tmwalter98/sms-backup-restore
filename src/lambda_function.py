@@ -33,17 +33,15 @@ def handler(event: dict, context: dict):
     session = Session()
 
     for elem in tag_iterator:
-        data = dict(elem.attrib.items())
-
         try:
             record = None
             match elem.tag:
                 case "call":
                     call = schemas.Call(**elem.attrib)
                     record = Call(**call.dict())
+                
             
             session.add(record)
             session.commit()
         except Exception as exc:
             print(exc)
-            

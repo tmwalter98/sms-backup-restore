@@ -1,0 +1,44 @@
+name: Update Lambda with New Image
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Create image URL
+        id: image_url
+        run: |
+          echo "ecr_repository_url=${{ secrets.AWS_ECR_REGISTRY_URL }}/${{ env.ECR_IMAGE_NAME }}" >> "$GITHUB_ENV"
+          echo ${{ env.ecr_repository_url }}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: your-aws-region
+
+      - name: Build and push Docker image
+        run: |
+          echo ${{ secrets.AWS_ECR_REGISTRY_URL }} | docker login --username AWS --password-stdin https://$(cut -d '/' -f 1 <<< "${{ secrets.AWS_ECR_REGISTRY_URL }}")
+          docker build -t ${{ env.ECR_IMAGE_NAME }} .
+          docker tag ${{ env.ECR_IMAGE_NAME }}:latest ${{ env.ecr_repository_url }}:latest
+          docker push ${{ env.ecr_repository_url }}:latest
+
+      - name: Update Lambda function
+        -
+        uses: appleboy/lambda-action@v0.1.9
+        with:
+          aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws_region: ${{ secrets.AWS_REGION }}
+          function_name: gorush
+          image_uri: ${{ env.ecr_repository_url }}:latest
