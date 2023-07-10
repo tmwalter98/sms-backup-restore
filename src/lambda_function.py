@@ -34,7 +34,7 @@ def handler(event: dict, context: LambdaContext):
     # url = get_db_url(os.environ['RDS_SECRET_ID'], os.environ['RDS_INSTANCE_IDENTIFIER'])
     url = os.environ['DATABASE_URL']
 
-    engine = create_engine(os.environ['DATABASE_URL'])
+    engine = create_engine(url)
     metadata.create_all(engine)
     Session = sessionmaker(bind=engine)
     session = Session()

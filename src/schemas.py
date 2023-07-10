@@ -3,7 +3,6 @@ from typing import Optional
 
 import phonenumbers
 from pydantic import BaseModel, Field, root_validator
-from pydantic.validators import strict_str_validator
 
 
 class PhoneNumber(str):
@@ -11,7 +10,6 @@ class PhoneNumber(str):
 
     @classmethod
     def __get_validators__(cls):
-        yield strict_str_validator
         yield cls.validate
 
     @classmethod
