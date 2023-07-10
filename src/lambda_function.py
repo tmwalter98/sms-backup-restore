@@ -56,6 +56,7 @@ def handler(event: dict, context: LambdaContext):
         try:
             if stmt != None: 
                 session.execute(stmt)
+                session.commit()
         except Exception as exc:
             logger.exception(str(exc))
         if sum(list(element_count.values())) % 100 == 0:
