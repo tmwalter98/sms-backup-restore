@@ -4,7 +4,7 @@ import os
 import boto3
 from aws_lambda_powertools import Logger
 from aws_lambda_powertools.utilities.typing import LambdaContext
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, exc
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import sessionmaker
 
@@ -57,9 +57,15 @@ def handler(event: dict, context: LambdaContext):
             if stmt != None: 
                 session.execute(stmt)
                 session.commit()
+        except ValueError as exc:
+            logger.exception(str(exc))
+            session.rollback()
+            raise exc
+        except exc.IntegrityError:
+            session.rollback()
         except Exception as exc:
             logger.exception(str(exc))
-        if sum(list(element_count.values())) % 100 == 0:
+        if sum(list(element_count.values())) % 1000 == 0:
             print(json.dumps(element_count))
 
     """ s3_client.put_object_tagging(

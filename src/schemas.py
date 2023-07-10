@@ -1,8 +1,31 @@
 from datetime import datetime
 from typing import Optional
 
+import phonenumbers
 from pydantic import BaseModel, Field, root_validator
+from pydantic.validators import strict_str_validator
 
+
+class PhoneNumber(str):
+    """Phone Number Pydantic type, using google's phonenumbers"""
+
+    @classmethod
+    def __get_validators__(cls):
+        yield strict_str_validator
+        yield cls.validate
+
+    @classmethod
+    def validate(cls, v: str):
+        # Remove spaces
+        v = v.strip().replace(' ', '')
+
+        try:
+            pn = phonenumbers.parse(v, region='US')
+            v = cls(phonenumbers.format_number(pn, phonenumbers.PhoneNumberFormat.E164))
+        except phonenumbers.phonenumberutil.NumberParseException:
+            pass
+
+        return v
 
 class CorrespondenceBase(BaseModel):
     timestamp: datetime = Field(validation_alias="date")
@@ -29,17 +52,17 @@ class CorrespondenceBase(BaseModel):
 
 class SMS(CorrespondenceBase):
     protocol: int
-    address: Optional[str]
+    address: Optional[PhoneNumber]
     type: int
     subject: Optional[str]
     body: str
     toa: str = Field(exclude=True)
     sc_toa: str = Field(exclude=True)
-    service_center: Optional[str]
+    service_center: Optional[PhoneNumber]
     read: int
     status: int
     locked: int
-    date_sent: Optional[int]
+    date_sent: Optional[datetime]
     sub_id: Optional[int]
 
     class Config:
@@ -86,7 +109,7 @@ class MMS(CorrespondenceBase):
 
 
 class Call(CorrespondenceBase):
-    number: Optional[str]
+    number: Optional[PhoneNumber]
     duration: int
     type: int
     presentation: int

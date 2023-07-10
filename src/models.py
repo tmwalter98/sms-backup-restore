@@ -34,7 +34,7 @@ class SMS(Common):
     service_center = Column(String)
     read = Column(Boolean)
     locked = Column(Boolean)
-    date_sent = Column(String)
+    date_sent = Column(DateTime(timezone=True))
     readable_date = Column(String)
     sub_id = Column(Integer)
 
