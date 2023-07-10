@@ -34,11 +34,10 @@ jobs:
           docker push ${{ env.ecr_repository_url }}:latest
 
       - name: Update Lambda function
-        -
         uses: appleboy/lambda-action@v0.1.9
         with:
           aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws_region: ${{ secrets.AWS_REGION }}
-          function_name: gorush
+          function_name: ${{ env.lambda_function_name }}
           image_uri: ${{ env.ecr_repository_url }}:latest
