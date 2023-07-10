@@ -2,11 +2,12 @@ from datetime import datetime
 from typing import Optional
 
 import phonenumbers
-from pydantic import BaseModel, Field, root_validator
+from pydantic import BaseModel, Field, root_validator, ConfigDict
 
 
 class PhoneNumber(str):
     """Phone Number Pydantic type, using google's phonenumbers"""
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     @classmethod
     def __get_validators__(cls):
