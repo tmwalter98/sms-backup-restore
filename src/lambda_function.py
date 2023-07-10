@@ -2,8 +2,9 @@ import boto3
 import os
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import create_engine
+from sqlalchemy.dialects.postgresql import insert
 
-from models import metadata, Call
+from models import metadata, Call, SMS
 from utils import S3XMLTagIterator, get_db_url
 import schemas
 
@@ -33,15 +34,16 @@ def handler(event: dict, context: dict):
     session = Session()
 
     for elem in tag_iterator:
+        stmt = None
+        match elem.tag:
+            case "call":
+                call = schemas.Call(**elem.attrib)
+                stmt = insert(Call).values(**call.dict()).on_conflict_do_nothing()
+            case "sms":
+                sms = schemas.SMS(**elem.attrib)
+                stmt = insert(SMS).values(**sms.dict()).on_conflict_do_nothing()
         try:
-            record = None
-            match elem.tag:
-                case "call":
-                    call = schemas.Call(**elem.attrib)
-                    record = Call(**call.dict())
-                
-            
-            session.add(record)
-            session.commit()
+            if stmt != None: 
+                session.execute(stmt)
         except Exception as exc:
             print(exc)
