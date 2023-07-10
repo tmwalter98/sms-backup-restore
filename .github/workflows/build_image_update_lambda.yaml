@@ -26,12 +26,15 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v1
+        id: login-ecr
+
       - name: Build and push Docker image
         run: |
-          echo ${{ secrets.AWS_ECR_REGISTRY_URL }} | docker login --username AWS --password-stdin https://$(cut -d '/' -f 1 <<< "${{ secrets.AWS_ECR_REGISTRY_URL }}")
           docker build -t ${{ env.ECR_IMAGE_NAME }} .
-          docker tag ${{ env.ECR_IMAGE_NAME }}:latest ${{ env.ecr_repository_url }}:latest
-          docker push ${{ env.ecr_repository_url }}:latest
+          docker tag ${{ env.ECR_IMAGE_NAME }}:latest ${{ env.ecr_repository_url }}:${{ github.sha }}
+          docker push ${{ env.ecr_repository_url }}:${{ github.sha }}
 
       - name: Update Lambda function
         uses: appleboy/lambda-action@v0.1.9
@@ -40,4 +43,4 @@ jobs:
           aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws_region: ${{ secrets.AWS_REGION }}
           function_name: ${{ env.LAMBDA_FUNCTION_NAME }}
-          image_uri: ${{ env.ecr_repository_url }}:latest
+          image_uri: ${{ env.ecr_repository_url }}:${{ github.sha }}
