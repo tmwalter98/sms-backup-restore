@@ -61,7 +61,7 @@ def handler(event: dict, context: LambdaContext):
         if sum(list(element_count.values())) % 100 == 0:
             print(json.dumps(element_count))
 
-    s3_client.put_object_tagging(
+    """ s3_client.put_object_tagging(
         Bucket=bucket_name,
         Key=object_key,
         Tagging={
@@ -72,4 +72,4 @@ def handler(event: dict, context: LambdaContext):
                 },
             ]
         },
-    )
+    ) """
