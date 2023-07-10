@@ -24,7 +24,7 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: your-aws-region
+          aws-region: ${{ secrets.AWS_REGION }}
 
       - name: Build and push Docker image
         run: |
@@ -39,5 +39,5 @@ jobs:
           aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws_region: ${{ secrets.AWS_REGION }}
-          function_name: ${{ env.lambda_function_name }}
+          function_name: ${{ env.LAMBDA_FUNCTION_NAME }}
           image_uri: ${{ env.ecr_repository_url }}:latest
