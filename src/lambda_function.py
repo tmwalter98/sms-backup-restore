@@ -42,8 +42,8 @@ def handler(event: dict, context: LambdaContext):
     element_count = {}
     for elem in tag_iterator:
         stmt = None
+        count = element_count.get(elem.tag, 0)
         match elem.tag:
-            count = element_count.get(elem.tag, 0)
             case "call":
                 call = schemas.Call(**elem.attrib)
                 stmt = insert(Call).values(**call.dict()).on_conflict_do_nothing()
@@ -52,7 +52,7 @@ def handler(event: dict, context: LambdaContext):
                 sms = schemas.SMS(**elem.attrib)
                 stmt = insert(SMS).values(**sms.dict()).on_conflict_do_nothing()
                 count += 1
-            element_count.update({elem.tag: count})
+        element_count.update({elem.tag: count})
         try:
             if stmt != None: 
                 session.execute(stmt)
