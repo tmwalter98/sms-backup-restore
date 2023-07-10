@@ -47,6 +47,10 @@ class CorrespondenceBase(BaseModel):
                     )
                 }
             )
+        try:
+            values.update({"date_sent": datetime.fromtimestamp(int(values["date_sent"]))})
+        except:
+            values.update({"date_sent": None})
         return values
 
 
