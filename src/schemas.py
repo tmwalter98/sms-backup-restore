@@ -182,7 +182,7 @@ class MMS(CorrespondenceBase):
 class Address(BaseModel):
     """Validator for Addresses"""
 
-    address: PhoneNumber = Field(alias="number")
+    address: PhoneNumber
     contact_name: Optional[str] = Field(default=None)
     type: Optional[int] = Field(default=None, exclude=True)
     charset: Optional[int] = Field(default=None, exclude=True)
