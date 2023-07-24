@@ -68,8 +68,7 @@ def handler(event: S3ObjectLambdaEvent, context: LambdaContext):
                 for elem in elem.findall(".//addr")
             ]
             if len(addresses) < 1:
-                address_dict = {k: e_data[k] for k in ["address", "contact_name"]}
-                addresses.append(schemas.Address.model_validate(address_dict))
+                addresses.append(schemas.Address.model_validate(e_data))
 
             for address in addresses:
                 address_stmt = insert(Address).values(**address.model_dump())
@@ -150,7 +149,7 @@ if __name__ == "__main__":
                             "arn": "arn:aws:s3:::example-bucket",
                         },
                         "object": {
-                            "key": "backups/sms-20190612153754.xml",
+                            "key": "backups/calls-20230723050047.xml",
                             "size": 1024,
                             "eTag": "0123456789abcdef0123456789abcdef",
                             "sequencer": "0A1B2C3D4E5F678901",

@@ -8,26 +8,8 @@ import boto3
 from botocore.exceptions import ClientError
 from lxml import etree
 
-rds_client = boto3.client("rds")
 secrets_manager_client = boto3.client("secretsmanager")
 s3_client = boto3.client("s3")
-
-
-def get_db_url(secret_id: str, db_instance_identifier: str):
-    response = secrets_manager_client.get_secret_value(SecretId=secret_id)
-    rds_credentials = json.loads(response["SecretString"])
-    username, password = rds_credentials["username"], rds_credentials["password"]
-
-    response = rds_client.describe_db_instances()
-    filter = (
-        lambda x: x["Endpoint"]
-        if x["DBInstanceIdentifier"] == db_instance_identifier
-        else None
-    )
-    endpoint = map(filter, response["DBInstances"]).__iter__().__next__()
-    address, port = endpoint["Address"], endpoint["Port"]
-
-    return f"postgresql+psycopg2://{username}:{password}@{address}:{port}/postgres"
 
 
 def upload_s3(bucket_name: str, data: str, content_type: str) -> str:
