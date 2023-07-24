@@ -7,9 +7,7 @@ import boto3
 import sqlalchemy
 from aws_lambda_powertools import Logger
 from aws_lambda_powertools.utilities import parameters
-from aws_lambda_powertools.utilities.parser.models import S3ObjectLambdaEvent
 from aws_lambda_powertools.utilities.typing import LambdaContext
-from botocore.exceptions import ClientError
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import sessionmaker
 from utils import S3XMLTagIterator, replace_null_with_none, upload_s3
@@ -24,7 +22,7 @@ s3_client = boto3.client("s3")
 
 
 @logger.inject_lambda_context
-def handler(event: S3ObjectLambdaEvent, context: LambdaContext):
+def handler(event: dict, context: LambdaContext):
     s3_event = event["Records"][0]["s3"]
     logger.info(event["Records"][0]["eventName"])
     bucket_name = s3_event["bucket"]["name"]
