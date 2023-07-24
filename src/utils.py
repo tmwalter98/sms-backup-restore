@@ -1,7 +1,6 @@
 import base64
 import copy
 import hashlib
-import json
 from typing import Tuple
 
 import boto3
@@ -21,7 +20,7 @@ def upload_s3(bucket_name: str, data: str, content_type: str) -> str:
     object_key = f"mms_parts/{hash_value}"
     try:
         s3_client.head_object(Bucket=bucket_name, Key=object_key)
-        print("object exists")
+        print(f"{object_key} already exists")
     except ClientError as exc:
         if exc.response["Error"]["Code"] == "404":
             s3_client.put_object(

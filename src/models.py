@@ -1,13 +1,12 @@
 import enum
 import uuid
-from datetime import datetime
 from typing import List, Optional
 
 from sqlalchemy import (UUID, Boolean, Column, DateTime, Enum, ForeignKey,
                         Integer, String, Table, event)
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import Mapped, mapped_column, relationship, sessionmaker
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy_utils import URLType
 from sqlalchemy_utils.types.phone_number import PhoneNumberType
 
