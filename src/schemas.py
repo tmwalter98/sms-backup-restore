@@ -203,10 +203,21 @@ class Address(BaseModel):
 class Call(CorrespondenceBase):
     """Validator for Phone Calls"""
 
-    address: Optional[PhoneNumber] = Field(alias="number")
+    address: Optional[PhoneNumber]
     contact_name: Optional[str] = Field(exclude=True)
     duration: int
     type: int
     presentation: int
     subscription_id: Optional[str]
     subscription_component_name: Optional[str]
+
+    class Config:
+        """Call Validator Config"""
+
+        extra = "ignore"
+
+
+    @model_validator(mode="before")
+    def set_address_from_aliae(cls, data: Dict[str, Any]) -> Dict[str, Any]:
+        data['address'] = data['number'] if 'number' in data else data['address']
+        return data
