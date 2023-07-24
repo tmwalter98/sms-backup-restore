@@ -168,9 +168,26 @@ class Part(Common):
     ctt_t = Column(String)
     text = Column(String)
     name = Column(String)
-    data_url = Column(URLType)
+    data_url: Column(String) = Column(URLType)
 
     mms = relationship("MMS", back_populates="parts")
+
+
+class CallTypeEnum(enum.IntEnum):
+    INCOMING = 1
+    OUTGOING = 2
+    MISSED = 3
+    VOICEMAIL = 4
+    REJECTED = 5
+    REFUSED_LIST = 6
+    ANSWERED_ON_ANOTHER_DEVICE = 7
+
+
+class CallPresentaionEnum(enum.IntEnum):
+    ALLOWED = 1
+    RESTRICTED = 2
+    UNKNOWN = 3
+    PAYPHONE = 4
 
 
 class Call(Common):
@@ -178,13 +195,13 @@ class Call(Common):
 
     timestamp = Column("timestamp", DateTime(timezone=True), primary_key=True)
     address: PhoneNumberType = Column(
-        PhoneNumberType(),
+        PhoneNumberType,
         ForeignKey("address.address", ondelete="CASCADE"),
         primary_key=True,
     )
+    type = Column(Enum(CallTypeEnum, native_enum=False), primary_key=True)
     duration = Column(Integer)
-    type = Column(Integer)
-    presentation = Column(Integer)
+    presentation = Column(Enum(CallPresentaionEnum, native_enum=False))
     subscription_id = Column(String)
     post_dial_digits = Column(String)
     subscription_component_name = Column(String)

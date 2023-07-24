@@ -1,7 +1,7 @@
 import json
 import os
 import traceback
-from typing import Dict, List, Optional
+from typing import Any, Dict, List
 
 import boto3
 import sqlalchemy
@@ -10,11 +10,11 @@ from aws_lambda_powertools.utilities import parameters
 from aws_lambda_powertools.utilities.typing import LambdaContext
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import sessionmaker
-from utils import S3XMLTagIterator, replace_null_with_none, upload_s3
 
 import schemas
 from models import (MMS, SMS, Address, Call, Part, metadata,
                     mms_address_association)
+from utils import S3XMLTagIterator, replace_null_with_none, upload_s3
 
 logger = Logger()
 
@@ -34,7 +34,7 @@ def handler(event: dict, context: LambdaContext):
     # Example: Get the content of the S3 object
     tag_iterator = S3XMLTagIterator(s3_client, bucket_name, object_key)
 
-    secret_value: dict = parameters.get_secret(
+    secret_value: Dict[Any, Any] = parameters.get_secret(
         os.getenv("SECRET_NAME", "prod/sms-backup-restore/config"), transform="json"
     )
 
@@ -130,6 +130,7 @@ def handler(event: dict, context: LambdaContext):
             if progress % 1000 == 0:
                 print(progress, json.dumps(element_count))
                 session.commit()
+    session.commit()
 
 
 if __name__ == "__main__":

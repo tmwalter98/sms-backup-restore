@@ -184,7 +184,7 @@ class MMS(CorrespondenceBase):
 class Address(BaseModel):
     """Validator for Addresses"""
 
-    address: PhoneNumber = Field(alias='number')
+    address: PhoneNumber = Field(alias="number")
     contact_name: Optional[str] = Field(default=None)
     type: Optional[int] = Field(default=None, exclude=True)
     charset: Optional[int] = Field(default=None, exclude=True)
@@ -205,7 +205,7 @@ class Address(BaseModel):
 class Call(CorrespondenceBase):
     """Validator for Phone Calls"""
 
-    number: Optional[PhoneNumber]
+    address: Optional[PhoneNumber] = Field(alias="number")
     contact_name: Optional[str] = Field(exclude=True)
     duration: int
     type: int
