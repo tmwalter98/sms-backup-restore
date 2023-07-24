@@ -1,0 +1,28 @@
+[tool.poetry]
+name = "sms-backup-restore"
+version = "0.1.0"
+description = ""
+authors = ["Timothy Walter <tmwalter98@gmail.com>"]
+readme = "README.md"
+packages = [{include = "sms_backup_restore"}]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+SQLAlchemy = "^2.0.19"
+SQLAlchemy-Utils = "^0.41.1"
+boto3 = "^1.28.9"
+psycopg2-binary = "^2.9.6"
+boto3-stubs = {extras = ["s3"], version = "^1.28.9"}
+pydantic = "^2.0.3"
+pydantic-extra-types = "^2.0.0"
+aws-lambda-powertools = "^2.21.0"
+lxml = "^4.9.3"
+phonenumbers = "^8.13.17"
+
+[tool.poetry.group.dev.dependencies]
+black = "^23.7.0"
+isort = "^5.12.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

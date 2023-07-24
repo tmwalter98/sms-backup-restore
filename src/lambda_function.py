@@ -131,31 +131,3 @@ def handler(event: dict, context: LambdaContext):
                 print(progress, json.dumps(element_count))
                 session.commit()
     session.commit()
-
-
-if __name__ == "__main__":
-    handler(
-        {
-            "Records": [
-                {
-                    "eventName": "ObjectCreated:Put",
-                    "s3": {
-                        "s3SchemaVersion": "1.0",
-                        "configurationId": "testConfigRule",
-                        "bucket": {
-                            "name": "sms-backup-restore",
-                            "ownerIdentity": {"principalId": "EXAMPLE"},
-                            "arn": "arn:aws:s3:::example-bucket",
-                        },
-                        "object": {
-                            "key": "backups/calls-20230723050047.xml",
-                            "size": 1024,
-                            "eTag": "0123456789abcdef0123456789abcdef",
-                            "sequencer": "0A1B2C3D4E5F678901",
-                        },
-                    },
-                }
-            ]
-        },
-        context={},
-    )

@@ -7,7 +7,6 @@ import boto3
 from botocore.exceptions import ClientError
 from lxml import etree
 
-secrets_manager_client = boto3.client("secretsmanager")
 s3_client = boto3.client("s3")
 
 

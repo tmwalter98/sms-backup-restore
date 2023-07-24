@@ -1,13 +1,23 @@
-FROM public.ecr.aws/lambda/python:3.10
+FROM public.ecr.aws/lambda/python:3.11 as final
+FROM public.ecr.aws/lambda/python:3.11 as build
 
-# Copy requirements.txt
-COPY requirements.txt ${LAMBDA_TASK_ROOT}
+# Install Poetry
+ENV POETRY_HOME=/opt/poetry
+ENV PATH="$POETRY_HOME/bin:$PATH"
+RUN curl -sSL https://install.python-poetry.org | POETRY_VERSION=1.5.1 python3 -
 
-# Copy function code
+# Generate Python dependencies as requirements.txt using Poetry
+WORKDIR /app
+COPY poetry.lock pyproject.toml /app/
+RUN poetry export --without-hashes -f requirements.txt > /app/requirements.txt
+
+FROM final
+
+# Copy code
 COPY src ${LAMBDA_TASK_ROOT}
 
-# Install the specified packages
+# Copy requirements.txt and install
+COPY --from=build /app/requirements.txt ${LAMBDA_TASK_ROOT}
 RUN pip install -r requirements.txt
 
-# Set the CMD to your handler (could also be done as a parameter override outside of the Dockerfile)
 CMD [ "lambda_function.handler" ]
