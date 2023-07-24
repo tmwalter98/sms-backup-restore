@@ -1,82 +1,163 @@
 import json
 import os
+import traceback
+from typing import Dict, List, Optional
 
 import boto3
+import sqlalchemy
 from aws_lambda_powertools import Logger
+from aws_lambda_powertools.utilities import parameters
+from aws_lambda_powertools.utilities.parser.models import S3ObjectLambdaEvent
 from aws_lambda_powertools.utilities.typing import LambdaContext
-from sqlalchemy import create_engine, exc
+from botocore.exceptions import ClientError
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import sessionmaker
+from utils import S3XMLTagIterator, replace_null_with_none, upload_s3
 
 import schemas
-from models import SMS, Call, metadata
-from utils import S3XMLTagIterator, get_db_url
+from models import (MMS, SMS, Address, Call, Part, metadata,
+                    mms_address_association)
 
 logger = Logger()
 
 s3_client = boto3.client("s3")
-rds_client = boto3.client('rds')
-secrets_manager_client = boto3.client('secretsmanager')
 
- 
+
 @logger.inject_lambda_context
-def handler(event: dict, context: LambdaContext):
-    s3_event = event['Records'][0]['s3']
-    bucket_name = s3_event['bucket']['name']
-    object_key = s3_event['object']['key']
-    
+def handler(event: S3ObjectLambdaEvent, context: LambdaContext):
+    s3_event = event["Records"][0]["s3"]
+    logger.info(event["Records"][0]["eventName"])
+    bucket_name = s3_event["bucket"]["name"]
+    object_key = s3_event["object"]["key"]
+
     # Perform your desired operations with the S3 object
-    print(f"Received event for object: s3://{bucket_name}/{object_key}")
-    
+    logger.info(f"Received event for object: s3://{bucket_name}/{object_key}")
+
     # Example: Get the content of the S3 object
     tag_iterator = S3XMLTagIterator(s3_client, bucket_name, object_key)
-    
-    # url = get_db_url(os.environ['RDS_SECRET_ID'], os.environ['RDS_INSTANCE_IDENTIFIER'])
-    url = os.environ['DATABASE_URL']
 
-    engine = create_engine(url)
+    secret_value: dict = parameters.get_secret(
+        os.getenv("SECRET_NAME", "prod/sms-backup-restore/config"), transform="json"
+    )
+
+    engine = sqlalchemy.create_engine(
+        secret_value["postgres_url"],
+        echo=False,
+        connect_args={"application_name": "sms-backup-restore"},
+    )
+    # metadata.drop_all(engine)
     metadata.create_all(engine)
     Session = sessionmaker(bind=engine)
     session = Session()
 
-    element_count = {}
+    element_count: Dict[str, int] = {}
+    skip = 0
     for elem in tag_iterator:
-        stmt = None
-        count = element_count.get(elem.tag, 0)
-        match elem.tag:
-            case "call":
-                call = schemas.Call(**elem.attrib)
-                stmt = insert(Call).values(**call.dict()).on_conflict_do_nothing()
-                count += 1
-            case "sms":
-                sms = schemas.SMS(**elem.attrib)
-                stmt = insert(SMS).values(**sms.dict()).on_conflict_do_nothing()
-                count += 1
-        element_count.update({elem.tag: count})
+        if isinstance(skip, int) and tag_iterator.progress < skip:
+            element_count.update({elem.tag: element_count.get(elem.tag, 0) + 1})
+            progress, __ = tag_iterator.get_progress()
+            if progress % 1000 == 0:
+                print(progress, json.dumps(element_count))
+            continue
         try:
-            if stmt != None: 
-                session.execute(stmt)
-                session.commit()
-        except ValueError as exc:
-            logger.exception(str(exc))
+            e_data = replace_null_with_none(dict(elem.attrib))
+            element_count.update({elem.tag: element_count.get(elem.tag, 0) + 1})
+
+            addresses: List[schemas.Address] = [
+                schemas.Address.model_validate(elem.attrib)
+                for elem in elem.findall(".//addr")
+            ]
+            if len(addresses) < 1:
+                address_dict = {k: e_data[k] for k in ["address", "contact_name"]}
+                addresses.append(schemas.Address.model_validate(address_dict))
+
+            for address in addresses:
+                address_stmt = insert(Address).values(**address.model_dump())
+                session.execute(
+                    address_stmt.on_conflict_do_update(
+                        index_elements=[Address.address],
+                        set_={"contact_name": address.contact_name},
+                        where=(Address.contact_name.is_(None)),
+                    ),
+                )
+
+            match elem.tag:
+                case "call":
+                    call = schemas.Call.model_validate(e_data).model_dump()
+                    session.execute(
+                        insert(Call).values(**call).on_conflict_do_nothing()
+                    )
+                case "sms":
+                    sms = schemas.SMS.model_validate(e_data).model_dump()
+                    session.execute(insert(SMS).values(**sms).on_conflict_do_nothing())
+                case "mms":
+                    mms_data = schemas.MMS.model_validate(e_data)
+                    session.execute(
+                        insert(MMS)
+                        .values(**mms_data.model_dump())
+                        .on_conflict_do_nothing()
+                    )
+                    for part in elem.findall(".//part"):
+                        part_dict = replace_null_with_none(dict(part.attrib))
+                        part_dict.update({"mms_id": mms_data.m_id})
+                        part = schemas.Part.model_validate(part_dict)
+                        if part.data:
+                            url = upload_s3(
+                                bucket_name=bucket_name,
+                                data=part.data,
+                                content_type=part.ct,
+                            )
+                            part.data_url = url
+                        session.execute(
+                            insert(Part)
+                            .values(**part.model_dump())
+                            .on_conflict_do_nothing()
+                        )
+
+                    for address in addresses:
+                        insert_stmt = insert(mms_address_association).values(
+                            mms_id=mms_data.m_id,
+                            address=address.address,
+                        )
+                        session.execute(insert_stmt.on_conflict_do_nothing())
+        except TypeError as exc:
+            traceback.print_exception(type(exc), exc, exc.__traceback__)
+            session.rollback()
+            print(e_data, elem.tag)
+        except Exception as exc:
+            traceback.print_exception(type(exc), exc, exc.__traceback__)
             session.rollback()
             raise exc
-        except exc.IntegrityError:
-            session.rollback()
-        except Exception as exc:
-            logger.exception(str(exc))
-        if sum(list(element_count.values())) % 1000 == 0:
-            print(json.dumps(element_count))
+        finally:
+            progress, __ = tag_iterator.get_progress()
+            if progress % 1000 == 0:
+                print(progress, json.dumps(element_count))
+                session.commit()
 
-    """ s3_client.put_object_tagging(
-        Bucket=bucket_name,
-        Key=object_key,
-        Tagging={
-            'TagSet': [
+
+if __name__ == "__main__":
+    handler(
+        {
+            "Records": [
                 {
-                    'Key': 'processed',
-                    'Value': 'true'
-                },
+                    "eventName": "ObjectCreated:Put",
+                    "s3": {
+                        "s3SchemaVersion": "1.0",
+                        "configurationId": "testConfigRule",
+                        "bucket": {
+                            "name": "sms-backup-restore",
+                            "ownerIdentity": {"principalId": "EXAMPLE"},
+                            "arn": "arn:aws:s3:::example-bucket",
+                        },
+                        "object": {
+                            "key": "backups/sms-20190612153754.xml",
+                            "size": 1024,
+                            "eTag": "0123456789abcdef0123456789abcdef",
+                            "sequencer": "0A1B2C3D4E5F678901",
+                        },
+                    },
+                }
             ]
         },
-    ) """
+        context={},
+    )
