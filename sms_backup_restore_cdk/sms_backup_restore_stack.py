@@ -19,8 +19,6 @@ class SMSBackupRestoreStack(Stack):
             key=self.stack_name, value=" ", apply_to_launched_instances=True
         )
 
-        lambda_timeout = Duration.minutes(10)
-
         dynamodb_table = dynamodb.TableV2(
             scope=self,
             id="DynamoDBTable",
@@ -207,12 +205,12 @@ class SMSBackupRestoreStack(Stack):
             description="SMS Backup Restore backup processing lambda",
             role=lambda_iam_role,
             architecture=_lambda.Architecture.ARM_64,
-            memory_size=512,
+            memory_size=8192,
             ephemeral_storage_size=Size.mebibytes(1024),
             application_log_level_v2=_lambda.ApplicationLogLevel.INFO,
             code=_lambda.DockerImageCode.from_ecr(ecr_repository),
             environment={"DYNAMODB_TABLE": dynamodb_table.table_name},
-            timeout=lambda_timeout,
+            timeout=Duration.minutes(15),
             tracing=_lambda.Tracing.PASS_THROUGH,
             logging_format=_lambda.LoggingFormat.JSON,
             log_group=log_group,
