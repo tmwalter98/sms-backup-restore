@@ -13,13 +13,34 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Configure 1Password Service Account
+        uses: 1password/load-secrets-action/configure@v2
+        with:
+          # Persist the 1Password Service Account Authorization token
+          # for next steps.
+          # Keep in mind that every single step in the job is now
+          # able to access the token.
+          service-account-token: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+
+      - name: Load credentials
+        id: load-credentials
+        uses: 1password/load-secrets-action@v2
+        with:
+          export-env: false
+        env:
+          AWS_ACCESS_KEY_ID: ${{ vars.OP_VAULT_SECRET_PREFIX }}/AWS_ACCESS_KEY_ID
+          AWS_SECRET_ACCESS_KEY: ${{ vars.OP_VAULT_SECRET_PREFIX }}/AWS_SECRET_ACCESS_KEY
+          AWS_REGION: ${{ vars.OP_VAULT_SECRET_PREFIX }}/AWS_REGION
+          AWS_ECR_REGISTRY_URL: ${{ vars.OP_VAULT_SECRET_PREFIX }}/AWS_ECR_REGISTRY_URL
+          LAMBDA_FUNCTION_NAME: ${{ vars.OP_VAULT_SECRET_PREFIX }}/LAMBDA_FUNCTION_NAME
+
       - name: Configure AWS credentials
         id: configure-aws-credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION }}
+          aws-access-key-id: ${{ steps.load-credentials.outputs.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ steps.load-credentials.outputs.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ steps.load-credentials.outputs.AWS_REGION }}
 
       - name: Login to Amazon ECR
         id: login-ecr
@@ -35,18 +56,10 @@ jobs:
         with:
           platforms: linux/arm64
 
-
-      - name: Get Composer Cache Directory
-        id: composer-cache
-        run: |
-          echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
-
       - name: Cache Docker layers
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
-          path: |
-            /tmp/.buildx-cache
-            ${{ steps.composer-cache.outputs.dir }}
+          path: ${{ runner.temp }}/.buildx-cache
           key: ${{ runner.os }}-buildx-${{ github.sha }}
           restore-keys: |
             ${{ runner.os }}-buildx-
@@ -55,7 +68,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ secrets.AWS_ECR_REGISTRY_URL }}
+          images: ${{ steps.load-credentials.outputs.AWS_ECR_REGISTRY_URL }}
           context: git
           flavor: |
             latest=true
@@ -77,16 +90,16 @@ jobs:
           annotations: ${{ steps.meta.outputs.annotations }}
           platforms: arm64
           file: Dockerfile
-          cache-from: type=local,src=/tmp/.buildx-cache
-          cache-to: type=local,dest=/tmp/.buildx-cache
+          cache-from: type=local,src=${{ runner.temp }}/.buildx-cache
+          cache-to: type=local,dest=${{ runner.temp }}/.buildx-cache-new,mode=max
           provenance: false
 
       - name: Update Lambda function
         id: update-lambda-image
         uses: appleboy/lambda-action@v0.2.0
         with:
-          aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws_region: ${{ secrets.AWS_REGION }}
-          function_name: ${{ vars.LAMBDA_FUNCTION_NAME }}
-          image_uri: ${{ secrets.AWS_ECR_REGISTRY_URL }}:${{ github.sha }}
+          aws_access_key_id: ${{ steps.load-credentials.outputs.AWS_ACCESS_KEY_ID }}
+          aws_secret_access_key: ${{ steps.load-credentials.outputs.AWS_SECRET_ACCESS_KEY }}
+          aws_region: ${{ steps.load-credentials.outputs.AWS_REGION }}
+          function_name: ${{ steps.load-credentials.outputs.LAMBDA_FUNCTION_NAME }}
+          image_uri: ${{ steps.load-credentials.outputs.AWS_ECR_REGISTRY_URL }}:${{ github.sha }}
