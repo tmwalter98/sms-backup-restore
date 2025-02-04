@@ -1,0 +1,11 @@
+{
+    "aws_request_id": "a3de505e-f16b-42f4-b3e6-bcd2e4a73903",
+    "log_stream_name": "2015/10/26/[$LATEST]c71058d852474b9895a0f221f73402ad",
+    "invoked_function_arn": "arn:aws:lambda:us-west-2:123456789012:function:ExampleCloudFormationStackName-ExampleLambdaFunctionResourceName-AULC3LB8Q02F",
+    "client_context": null,
+    "log_group_name": "/aws/lambda/ExampleCloudFormationStackName-ExampleLambdaFunctionResourceName-AULC3LB8Q02F",
+    "function_name": "sms-backup-restore",
+    "function_version": "$LATEST",
+    "identity": "",
+    "memory_limit_in_mb": "512"
+}

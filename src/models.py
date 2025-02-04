@@ -3,7 +3,7 @@ import uuid
 from typing import List, Optional
 
 from sqlalchemy import (UUID, Boolean, Column, DateTime, Enum, ForeignKey,
-                        Integer, String, Table, event)
+                        Integer, String, Table, UniqueConstraint, event)
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -154,6 +154,7 @@ class MMS(Common):
 
 class Part(Common):
     __tablename__ = "part"
+    __table_args__ = (UniqueConstraint("mms_id", "seq"),)
 
     id = Column(UUID(as_uuid=True), default=uuid.uuid4, primary_key=True)
     mms_id = Column(String, ForeignKey("mms.m_id", ondelete="CASCADE"))

@@ -1,109 +1,145 @@
-import uuid
-from datetime import datetime
-from typing import Any, Dict, List, Optional
+import re
+from datetime import datetime, timezone
+from hashlib import sha256
+from typing import Any, Dict, FrozenSet, List, Optional
 
 import phonenumbers
-from pydantic import (BaseModel, Field, GetCoreSchemaHandler, field_validator,
-                      model_validator, root_validator)
-from pydantic_core import CoreSchema, core_schema
+from pydantic import (BaseModel, Field, PlainSerializer, computed_field,
+                      field_serializer, field_validator, model_validator)
+from typing_extensions import Annotated
+
+StringSerializedDatetime = Annotated[
+    datetime, PlainSerializer(lambda x: x.isoformat(), return_type=str)
+]
 
 
-class PhoneNumber(str):
-    """Phone Number Pydantic type, using google's phonenumbers"""
+def replace_unknown_contact_name_null(v: Optional[str]) -> Optional[str]:
+    """Replace contact name `(Unknown)` with `Null`."""
 
-    @classmethod
-    def __get_pydantic_core_schema__(
-        cls, source_type: Any, handler: GetCoreSchemaHandler
-    ) -> CoreSchema:
-        return core_schema.no_info_after_validator_function(cls, handler(str))
-
-    @classmethod
-    def __get_validators__(cls):
-        yield cls.validate
-
-    @classmethod
-    def validate(cls, v: str):
-        # Remove spaces
-        v = v.strip().replace(" ", "")
-
-        try:
-            pn = phonenumbers.parse(v, region="US")
-            v = cls(phonenumbers.format_number(pn, phonenumbers.PhoneNumberFormat.E164))
-        except phonenumbers.phonenumberutil.NumberParseException:
-            print(v)
-
-        return v
+    match = re.match(r"^(?!\(Unknown\)$).+$", v) if isinstance(v, str) else None
+    return match.group() if match else None
 
 
-class CorrespondenceBase(BaseModel):
-    timestamp: datetime = Field(validation_alias="date")
+def phone_number_validator(v: str) -> str:
+    """Attempt to validate phone number or format."""
+    try:
+        phome_numbers = phonenumbers.parse(v, region="US")
+        v = phonenumbers.format_number(
+            phome_numbers, phonenumbers.PhoneNumberFormat.E164
+        )
+    except phonenumbers.phonenumberutil.NumberParseException:
+        v = v.strip() if isinstance(v, str) else None
+    return v
+
+
+class HashableBaseModel(BaseModel):
+    """Base model that enforces hashability."""
+
+    def hash(self) -> str:
+        """Computes a SHA-256 hash of the model's data."""
+        raise NotImplementedError()
+
+
+class CorrespondenceBase(HashableBaseModel):
+    """Base model for correspondence records like SMS, MMS, and Calls."""
+
+    timestamp: StringSerializedDatetime = Field(validation_alias="date")
+
+    @computed_field
+    @property
+    def record_type(self) -> str:
+        """Defines the record type, must be implemented in subclasses."""
+        raise NotImplementedError("Subclass needs to define this.")
 
     class Config:
         from_attributes = True
         extra = "ignore"
+        frozen = True
 
-    @root_validator(pre=True)
-    def set_timestamp(cls, values):
+    @model_validator(mode="before")
+    @classmethod
+    def set_timestamp(cls, values: Dict[str, Any]):
+        """Parses timestamp values from the input data."""
+        tz = timezone.utc
+        timestamp = datetime(1970, 1, 1, tzinfo=tz)
+
         try:
-            values.update({"timestamp": datetime.fromtimestamp(int(values["date"]))})
-        except ValueError:
-            values.update(
-                {
-                    "timestamp": datetime.strptime(
-                        values["readable_date"], "%b %d, %Y %I:%M:%S %p"
-                    )
-                }
-            )
+            timestamp = datetime.fromtimestamp(float(values["date"]))
+        except (OSError, KeyError, ValueError):
+            try:
+                timestamp = datetime.strptime(
+                    values["readable_date"], "%b %d, %Y %I:%M:%S %p"
+                ).replace(tzinfo=tz)
+            except Exception:
+                pass
         finally:
-            values["timestamp"] = (
-                values["timestamp"]
-                if values["timestamp"] >= datetime(1970, 1, 1)
-                else datetime(1970, 1, 1)
-            )
+            values["timestamp"] = timestamp
 
         try:
             values.update(
-                {"date_sent": datetime.fromtimestamp(int(values["date_sent"]))}
+                {"date_sent": datetime.fromtimestamp(int(values["date_sent"])).replace(tzinfo=tz)}
             )
         except Exception:
-            values.update({"date_sent": values["timestamp"]})
+            values.update({"date_sent": timestamp})
         finally:
             values["date_sent"] = (
-                values["timestamp"]
-                if values["date_sent"] <= datetime(1970, 1, 1)
+                timestamp
+                if values["date_sent"] <= datetime(1970, 1, 1).replace(tzinfo=tz) < timestamp
                 else values["date_sent"]
             )
         return values
 
 
 class SMS(CorrespondenceBase):
-    """Validator for SMS messages"""
+    """Represents an SMS message."""
 
     protocol: int
-    address: Optional[PhoneNumber]
+    address: Optional[str]
     contact_name: Optional[str]
     type: int
     subject: Optional[str]
     body: str
     toa: Optional[str] = Field(exclude=True)
     sc_toa: Optional[str] = Field(exclude=True)
-    service_center: Optional[PhoneNumber]
+    service_center: Optional[str]
     read: int
     status: int
     locked: int
-    date_sent: Optional[datetime]
+    date_sent: Optional[StringSerializedDatetime]
     sub_id: Optional[int]
+
+    @computed_field
+    @property
+    def record_type(self) -> str:
+        return "SMS"
 
     class Config:
         """SMS Validator Config"""
 
         from_attributes = True
 
+    @field_validator("address", mode="before")
+    @classmethod
+    def validate_address(cls, v: str) -> List[str]:
+        """Replace contact name `(Unknown)` with `Null`."""
+        return phone_number_validator(v)
 
-class Part(BaseModel):
-    """Validator for MMS parts"""
+    @field_validator("contact_name", mode="before")
+    @classmethod
+    def set_unknown_contact_name_null(cls, v: str):
+        """Replace contact name `(Unknown)` with `Null`."""
+        return replace_unknown_contact_name_null(v)
 
-    mms_id: Optional[str]
+    def hash(self):
+        hash_values = type(self), self.address, self.timestamp, self.type, self.body
+        hash_string = "".join([str(v) for v in hash_values])
+        return sha256(hash_string.encode("utf-8")).hexdigest()
+
+
+class Part(HashableBaseModel):
+    """Represents an MMS message Part."""
+
+    # mms_id: Optional[str] = None
     name: Optional[str]
     seq: Optional[int]
     ct: Optional[str] = None
@@ -115,13 +151,54 @@ class Part(BaseModel):
     ctt_s: Optional[str]
     ctt_t: Optional[str]
     text: Optional[str]
-    data_url: Optional[str] = None
-    data: Optional[bytes] = Field(exclude=True, default=None)
+    data: Optional[str] = Field(default=None)
 
     class Config:
         """MMS Parts Validator Config"""
 
         from_attributes = True
+        frozen = True
+
+    def hash(self):
+        d = self.data if bool(self.data) else self.text
+        hash_values = type(self), self.seq, d
+        hash_string = "".join([str(v) for v in hash_values])
+        return sha256(hash_string.encode("utf-8")).hexdigest()
+
+    def __lt__(self, obj):
+        if self.seq == obj.seq:
+            hash_self = hash(self.data) if bool(self.data) else hash(self.text)
+            hash_obj = hash(self.data) if bool(self.data) else hash(self.text)
+            return (hash_self < hash_obj)
+        return ((self.seq) < (obj.seq))
+
+    def __gt__(self, obj):
+        if self.seq == obj.seq:
+            hash_self = hash(self.data) if bool(self.data) else hash(self.text)
+            hash_obj = hash(self.data) if bool(self.data) else hash(self.text)
+            return (hash_self > hash_obj)
+        return ((self.seq) > (obj.seq))
+
+    def __le__(self, obj):
+        if self.seq == obj.seq:
+            hash_self = hash(self.data) if bool(self.data) else hash(self.text)
+            hash_obj = hash(self.data) if bool(self.data) else hash(self.text)
+            return (hash_self <= hash_obj)
+        return ((self.seq) <= (obj.seq))
+
+    def __ge__(self, obj):
+        if self.seq == obj.seq:
+            hash_self = hash(self.data) if bool(self.data) else hash(self.text)
+            hash_obj = hash(self.data) if bool(self.data) else hash(self.text)
+            return (hash_self >= hash_obj)
+        return ((self.seq) >= (obj.seq))
+
+    def __eq__(self, obj):
+        if self.seq == obj.seq:
+            hash_self = hash(self.data) if bool(self.data) else hash(self.text)
+            hash_obj = hash(self.data) if bool(self.data) else hash(self.text)
+            return (hash_self == hash_obj)
+        return ((self.seq) == (obj.seq))
 
 
 class MMS(CorrespondenceBase):
@@ -133,7 +210,7 @@ class MMS(CorrespondenceBase):
     read_status: Optional[bool]
     seen: Optional[int]
     msg_box: Optional[int]
-    address: List[PhoneNumber]
+    address: FrozenSet[str]
     sub_cs: Optional[str]
     resp_st: Optional[int]
     retr_st: Optional[str]
@@ -141,12 +218,12 @@ class MMS(CorrespondenceBase):
     text_only: int
     exp: Optional[int]
     locked: Optional[int]
-    m_id: str
+    m_id: Optional[str]
     st: Optional[str]
     retr_txt_cs: Optional[str]
     retr_txt: Optional[str]
     creator: Optional[str]
-    date_sent: Optional[datetime]
+    date_sent: Optional[StringSerializedDatetime]
     read: int
     m_size: Optional[int]
     rpt_a: Optional[str]
@@ -160,38 +237,75 @@ class MMS(CorrespondenceBase):
     d_rpt: Optional[int]
     v: Optional[int]
     m_type: Optional[int]
-    parts: List[Part] = Field(default=[], exclude=True)
+    parts: FrozenSet[Part] = Field(default=[])
 
-    @model_validator(mode="before")
-    def set_m_id_if_dne(cls, data) -> Dict[str, Any]:
-        data["m_id"] = data["tr_id"] if data["m_id"] is None else data["m_id"]
-        data["m_id"] = (
-            f"assigned/{uuid.uuid4().hex.upper()}"
-            if data["m_id"] is None
-            else data["m_id"]
-        )
-        data["address"] = [PhoneNumber(num) for num in data["address"].split("~")]
-        return data
+    @computed_field
+    @property
+    def record_type(self) -> str:
+        return "MMS"
 
     class Config:
         """MMS Validator Config"""
 
         from_attributes = True
 
+    @field_validator("address", mode="after")
+    @classmethod
+    def sorted_set_address(cls, addresses: List[str]) -> List[str]:
+        return sorted(addresses)
+    
+    @field_validator("parts", mode="after")
+    @classmethod
+    def sorted_set_parts(cls, parts: List[Part]) -> List[Part]:
+        return sorted(parts)
 
-class Address(BaseModel):
+    @field_validator("address", mode="before")
+    @classmethod
+    def validate_address_list(cls, v: str) -> List[str]:
+        """Replace contact name `(Unknown)` with `Null`."""
+
+        return sorted([phone_number_validator(a) for a in v.split("~")])
+
+    @field_serializer("address", when_used="always")
+    def serialize_address_frozenset(self, address: FrozenSet[str]):
+        return list(address)
+
+    @field_serializer("parts", when_used="always")
+    def serialize_parts_frozenset(self, parts: FrozenSet[str]):
+        return list(parts)
+
+    def hash(self):
+        hash_values = (
+            type(self),
+            "~".join(self.address),
+            self.timestamp,
+            self.msg_box,
+            self.m_id,
+            self.m_type,
+        )
+        hash_string = "".join([str(v) for v in hash_values])
+        return sha256(hash_string.encode("utf-8")).hexdigest()
+
+
+class Address(HashableBaseModel):
     """Validator for Addresses"""
 
-    address: PhoneNumber
+    address: str
     contact_name: Optional[str] = Field(default=None)
     type: Optional[int] = Field(default=None, exclude=True)
     charset: Optional[int] = Field(default=None, exclude=True)
 
     @field_validator("contact_name", mode="before")
-    def set_unknown_contact_name_null(cls, v):
-        if isinstance(v, str):
-            return None if "(Unknown)" in v else v
-        return v
+    @classmethod
+    def set_unknown_contact_name_null(cls, v: str):
+        """Replace contact name `(Unknown)` with `Null`."""
+        return replace_unknown_contact_name_null(v)
+
+    @field_validator("address", mode="before")
+    @classmethod
+    def validate_address(cls, v: str) -> List[str]:
+        """Replace contact name `(Unknown)` with `Null`."""
+        return phone_number_validator(v)
 
     class Config:
         """Address Validator Config"""
@@ -199,11 +313,22 @@ class Address(BaseModel):
         from_attributes = True
         extra = "ignore"
 
+    def hash(self):
+        hash_values = (
+            type(self),
+            self.address,
+            self.type
+        )
+        hash_string = "".join([str(v) for v in hash_values])
+        return sha256(hash_string.encode("utf-8")).hexdigest()
+
+    
+
 
 class Call(CorrespondenceBase):
     """Validator for Phone Calls"""
 
-    address: Optional[PhoneNumber]
+    address: Optional[str]
     contact_name: Optional[str] = Field(exclude=True)
     duration: int
     type: int
@@ -211,13 +336,35 @@ class Call(CorrespondenceBase):
     subscription_id: Optional[str]
     subscription_component_name: Optional[str]
 
+    @computed_field
+    @property
+    def record_type(self) -> str:
+        return "Call"
+
     class Config:
         """Call Validator Config"""
 
         extra = "ignore"
 
+    @field_validator("address", mode="before")
+    @classmethod
+    def validate_address(cls, v: str) -> List[str]:
+        """Replace contact name `(Unknown)` with `Null`."""
+        return phone_number_validator(v)
+
+    @field_validator("contact_name", mode="before")
+    @classmethod
+    def set_unknown_contact_name_null(cls, v: str):
+        """Replace contact name `(Unknown)` with `Null`."""
+        return replace_unknown_contact_name_null(v)
 
     @model_validator(mode="before")
+    @classmethod
     def set_address_from_aliae(cls, data: Dict[str, Any]) -> Dict[str, Any]:
-        data['address'] = data['number'] if 'number' in data else data['address']
+        data["address"] = data["number"] if "number" in data else data["address"]
         return data
+
+    def hash(self):
+        hash_values = type(self), self.address, self.timestamp, self.duration, self.type
+        hash_string = "".join([str(v) for v in hash_values])
+        return sha256(hash_string.encode("utf-8")).hexdigest()

@@ -11,40 +11,82 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v2
-
-      - name: Create image URL
-        id: image_url
-        run: |
-          echo "ecr_repository_url=${{ secrets.AWS_ECR_REGISTRY_URL }}/${{ vars.ECR_IMAGE_NAME }}" >> "$GITHUB_ENV"
-          echo ${{ env.ecr_repository_url }}
+        uses: actions/checkout@v4
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v1
+        id: configure-aws-credentials
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
       - name: Login to Amazon ECR
-        uses: aws-actions/amazon-ecr-login@v1
         id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Build and push Docker image
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: docker_nodejs_demo
-          IMAGE_TAG: nodejs_demo_image
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          platforms: linux/arm64
+
+
+      - name: Get Composer Cache Directory
+        id: composer-cache
         run: |
-          docker build -t ${{ vars.ECR_IMAGE_NAME }} .
-          docker tag ${{ vars.ECR_IMAGE_NAME }}:latest ${{ env.ecr_repository_url }}:${{ github.sha }}
-          docker push ${{ env.ecr_repository_url }}:${{ github.sha }}
+          echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
+
+      - name: Cache Docker layers
+        uses: actions/cache@v3
+        with:
+          path: |
+            /tmp/.buildx-cache
+            ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ secrets.AWS_ECR_REGISTRY_URL }}
+          context: git
+          flavor: |
+            latest=true
+          tags: |
+            type=schedule,pattern={{date 'YYYYMMDD-HHmmss' tz='UTC'}}
+            type=semver,pattern={{major}}.{{minor}}.{{patch}}
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}
+            type=sha,format=long,prefix=
+
+      - name: Build and push
+        id: docker-build-push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          annotations: ${{ steps.meta.outputs.annotations }}
+          platforms: arm64
+          file: Dockerfile
+          cache-from: type=local,src=/tmp/.buildx-cache
+          cache-to: type=local,dest=/tmp/.buildx-cache
+          provenance: false
 
       - name: Update Lambda function
-        uses: appleboy/lambda-action@v0.1.9
+        id: update-lambda-image
+        uses: appleboy/lambda-action@v0.2.0
         with:
           aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws_region: ${{ secrets.AWS_REGION }}
           function_name: ${{ vars.LAMBDA_FUNCTION_NAME }}
-          image_uri: ${{ env.ecr_repository_url }}:${{ github.sha }}
+          image_uri: ${{ secrets.AWS_ECR_REGISTRY_URL }}:${{ github.sha }}

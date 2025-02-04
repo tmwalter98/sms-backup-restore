@@ -6,23 +6,57 @@ authors = ["Timothy Walter <tmwalter98@gmail.com>"]
 readme = "README.md"
 packages = [{include = "sms_backup_restore"}]
 
+[tool.poetry.requires-plugins]
+poetry-plugin-export = ">=1.8"
+
 [tool.poetry.dependencies]
-python = "^3.11"
-SQLAlchemy = "^2.0.19"
-SQLAlchemy-Utils = "^0.41.1"
+python = "^3.12"
 boto3 = "^1.28.9"
-psycopg2-binary = "^2.9.6"
-boto3-stubs = {extras = ["s3"], version = "^1.28.9"}
+boto3-stubs = {extras = ["dynamodb", "s3"], version = "^1.36.10"}
 pydantic = "^2.0.3"
 pydantic-extra-types = "^2.0.0"
-aws-lambda-powertools = "^2.21.0"
+aws-lambda-powertools = {extras = ["tracer"], version = "^3.5.0"}
 lxml = "^4.9.3"
 phonenumbers = "^8.13.17"
+minio = "^7.2.0"
+smart-open = {extras = ["s3"], version = "^6.4.0"}
+pandas = "^2.2.1"
+
+[tool.poetry.group.old.dependencies]
+SQLAlchemy = "^2.0.19"
+SQLAlchemy-Utils = "^0.41.1"
+psycopg2-binary = "^2.9.9"
+kafka-python = "^2.0.2"
+pyarrow = "^15.0.2"
 
 [tool.poetry.group.dev.dependencies]
-black = "^23.7.0"
-isort = "^5.12.0"
+flake8 = "^7.0.0"
+black = "^23.12.1"
+isort = "^5.13.2"
+flake8-pyproject = "^1.2.3"
+ipykernel = "^6.27.1"
+ipywidgets = "^8.1.5"
+tqdm = "^4.67.1"
+redis = "^5.2.1"
+
+[tool.poetry.group.test.dependencies]  
+pytest = "^8.3.4"
+moto = {extras = ["dynamodb", "s3"], version = "^5.0.27"}
 
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.flake8]
+ignore = ['E231', 'E241']
+per-file-ignores = [
+    '__init__.py:F401',
+]
+max-line-length = 120
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+pythonpath = "src"
+testpaths = [
+    "tests"
+]
