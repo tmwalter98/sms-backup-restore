@@ -246,3 +246,4 @@ backups/*.xml
 .DS_Store
 credentials.json
 docker/**
+cdk.out/**

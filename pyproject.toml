@@ -45,6 +45,11 @@ aws-lambda-powertools = {extras = ["aws-sdk"], version = "^3.5.0"}
 pytest = "^8.3.4"
 moto = {extras = ["dynamodb", "s3"], version = "^5.0.27"}
 
+
+[tool.poetry.group.deploy.dependencies]
+aws-cdk-lib = "^2.177.0"
+constructs = "^10.4.2"
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"

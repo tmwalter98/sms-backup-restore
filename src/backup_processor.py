@@ -24,7 +24,19 @@ class BackupRestoreProcessor:
         self._s3_client: S3Client = s3_client
         self._s3_resource: DynamoDBServiceResource = s3_resource
 
+    def tag_object(
+        self, bucket_name: str, object_key: str, tags: Dict[str, Any]
+    ) -> None:
+        """Tags object with k,v pair tags"""
+        tag_set = [{"Key": k, "Value": str(v)} for k, v in tags.items()]
+        self._s3_client.put_object_tagging(
+            Bucket=bucket_name,
+            Key=object_key,
+            Tagging={"TagSet": tag_set},
+        )
+
     def process_tag(self, bucket: Bucket, elem: Element) -> CorrespondenceBase:
+        """Processes XML tag.  Uploading object data for MMS parts"""
         e_data = replace_null_with_none(dict(elem.attrib))
 
         match elem.tag:

@@ -21,7 +21,7 @@ WORKDIR ${LAMBDA_TASK_ROOT}
 COPY poetry.lock pyproject.toml ./
 
 # Generate requirements
-RUN poetry export --without-hashes --without dev,old,test -f requirements.txt > requirements.txt
+RUN poetry export --without-hashes --without dev,old,test,deploy -f requirements.txt > requirements.txt
 
 FROM base
 
