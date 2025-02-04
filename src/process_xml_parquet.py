@@ -17,8 +17,6 @@ from aws_lambda_powertools.utilities.typing import LambdaContext
 from botocore.exceptions import ClientError
 from kafka import KafkaProducer
 from lxml import etree
-from minio import Minio
-from minio.error import S3Error
 from smart_open import open as sopen
 from smart_open import s3 as smart_open_s3
 from smart_open.s3 import Reader
@@ -28,8 +26,7 @@ from sqlalchemy.orm import sessionmaker
 
 import schemas_v2 as schemas
 from schemas_v2 import MMS, SMS, Address, Call, Part
-from utils import (S3XMLTagIterator, replace_null_with_none, upload_s3,
-                   upload_s3_minio)
+from utils import S3XMLTagIterator, replace_null_with_none, upload_s3, upload_s3_minio
 
 logger = Logger()
 

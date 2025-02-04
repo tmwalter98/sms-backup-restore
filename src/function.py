@@ -25,10 +25,8 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import sessionmaker
 
 import schemas
-from models import (MMS, SMS, Address, Call, Part, metadata,
-                    mms_address_association)
-from utils import (S3XMLTagIterator, replace_null_with_none, upload_s3,
-                   upload_s3_minio)
+from models import MMS, SMS, Address, Call, Part, metadata, mms_address_association
+from utils import S3XMLTagIterator, replace_null_with_none, upload_s3, upload_s3_minio
 
 logger = Logger()
 

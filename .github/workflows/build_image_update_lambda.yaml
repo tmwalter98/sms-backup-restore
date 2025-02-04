@@ -16,10 +16,6 @@ jobs:
       - name: Configure 1Password Service Account
         uses: 1password/load-secrets-action/configure@v2
         with:
-          # Persist the 1Password Service Account Authorization token
-          # for next steps.
-          # Keep in mind that every single step in the job is now
-          # able to access the token.
           service-account-token: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
 
       - name: Load credentials

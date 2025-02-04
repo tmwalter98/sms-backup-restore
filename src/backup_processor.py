@@ -1,24 +1,14 @@
 import base64
-import json
-import re
-from collections import defaultdict
 from hashlib import sha256
-from itertools import batched
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List
 
-import boto3
 import numpy as np
-import pandas as pd
-import redis
 from lxml import etree
 from lxml.etree import Element
 from mypy_boto3_dynamodb.service_resource import DynamoDBServiceResource
 from mypy_boto3_s3.client import S3Client
-from mypy_boto3_s3.service_resource import (Bucket, BucketObjectsCollection,
-                                            S3ServiceResource)
-from redis.commands.json.path import Path
+from mypy_boto3_s3.service_resource import Bucket, S3ServiceResource
 from smart_open import s3 as smart_open_s3
-from tqdm.notebook import tqdm
 
 from schemas import MMS, SMS, Call, CorrespondenceBase
 from utils import replace_null_with_none
@@ -28,7 +18,9 @@ BUCKET_NAME = "sms-backup-restore"
 
 class BackupRestoreProcessor:
 
-    def __init__(self, s3_client: S3ServiceResource, s3_resource: DynamoDBServiceResource) -> None:
+    def __init__(
+        self, s3_client: S3ServiceResource, s3_resource: DynamoDBServiceResource
+    ) -> None:
         self._s3_client: S3Client = s3_client
         self._s3_resource: DynamoDBServiceResource = s3_resource
 
@@ -56,7 +48,9 @@ class BackupRestoreProcessor:
                         try:
                             self._s3_client.head_object(Bucket=BUCKET_NAME, Key=key)
                         except Exception:
-                            bucket.put_object(Body=data, Key=key, ContentType=part["ct"])
+                            bucket.put_object(
+                                Body=data, Key=key, ContentType=part["ct"]
+                            )
 
                         part["data"] = data_sha256
                         assert part["data"] == data_sha256
@@ -72,12 +66,8 @@ class BackupRestoreProcessor:
             case _:
                 pass
 
-    def process_backup(
-        self, bucket_name: str, backup_key: str
-    ) -> List[Dict[str, Any]]:
-        """Streams .xml backup file from S3 and uploads records to S3.
-        
-        """
+    def process_backup(self, bucket_name: str, backup_key: str) -> List[Dict[str, Any]]:
+        """Streams .xml backup file from S3 and uploads records to S3."""
         fin: smart_open_s3.Reader = smart_open_s3.open(
             bucket_name,
             backup_key,

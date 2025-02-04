@@ -4,8 +4,15 @@ from hashlib import sha256
 from typing import Any, Dict, FrozenSet, List, Optional
 
 import phonenumbers
-from pydantic import (BaseModel, Field, PlainSerializer, computed_field,
-                      field_serializer, field_validator, model_validator)
+from pydantic import (
+    BaseModel,
+    Field,
+    PlainSerializer,
+    computed_field,
+    field_serializer,
+    field_validator,
+    model_validator,
+)
 from typing_extensions import Annotated
 
 StringSerializedDatetime = Annotated[
@@ -77,14 +84,20 @@ class CorrespondenceBase(HashableBaseModel):
 
         try:
             values.update(
-                {"date_sent": datetime.fromtimestamp(int(values["date_sent"])).replace(tzinfo=tz)}
+                {
+                    "date_sent": datetime.fromtimestamp(
+                        int(values["date_sent"])
+                    ).replace(tzinfo=tz)
+                }
             )
         except Exception:
             values.update({"date_sent": timestamp})
         finally:
             values["date_sent"] = (
                 timestamp
-                if values["date_sent"] <= datetime(1970, 1, 1).replace(tzinfo=tz) < timestamp
+                if values["date_sent"]
+                <= datetime(1970, 1, 1).replace(tzinfo=tz)
+                < timestamp
                 else values["date_sent"]
             )
         return values
@@ -169,36 +182,36 @@ class Part(HashableBaseModel):
         if self.seq == obj.seq:
             hash_self = hash(self.data) if bool(self.data) else hash(self.text)
             hash_obj = hash(self.data) if bool(self.data) else hash(self.text)
-            return (hash_self < hash_obj)
-        return ((self.seq) < (obj.seq))
+            return hash_self < hash_obj
+        return (self.seq) < (obj.seq)
 
     def __gt__(self, obj):
         if self.seq == obj.seq:
             hash_self = hash(self.data) if bool(self.data) else hash(self.text)
             hash_obj = hash(self.data) if bool(self.data) else hash(self.text)
-            return (hash_self > hash_obj)
-        return ((self.seq) > (obj.seq))
+            return hash_self > hash_obj
+        return (self.seq) > (obj.seq)
 
     def __le__(self, obj):
         if self.seq == obj.seq:
             hash_self = hash(self.data) if bool(self.data) else hash(self.text)
             hash_obj = hash(self.data) if bool(self.data) else hash(self.text)
-            return (hash_self <= hash_obj)
-        return ((self.seq) <= (obj.seq))
+            return hash_self <= hash_obj
+        return (self.seq) <= (obj.seq)
 
     def __ge__(self, obj):
         if self.seq == obj.seq:
             hash_self = hash(self.data) if bool(self.data) else hash(self.text)
             hash_obj = hash(self.data) if bool(self.data) else hash(self.text)
-            return (hash_self >= hash_obj)
-        return ((self.seq) >= (obj.seq))
+            return hash_self >= hash_obj
+        return (self.seq) >= (obj.seq)
 
     def __eq__(self, obj):
         if self.seq == obj.seq:
             hash_self = hash(self.data) if bool(self.data) else hash(self.text)
             hash_obj = hash(self.data) if bool(self.data) else hash(self.text)
-            return (hash_self == hash_obj)
-        return ((self.seq) == (obj.seq))
+            return hash_self == hash_obj
+        return (self.seq) == (obj.seq)
 
 
 class MMS(CorrespondenceBase):
@@ -253,7 +266,7 @@ class MMS(CorrespondenceBase):
     @classmethod
     def sorted_set_address(cls, addresses: List[str]) -> List[str]:
         return sorted(addresses)
-    
+
     @field_validator("parts", mode="after")
     @classmethod
     def sorted_set_parts(cls, parts: List[Part]) -> List[Part]:
@@ -314,15 +327,9 @@ class Address(HashableBaseModel):
         extra = "ignore"
 
     def hash(self):
-        hash_values = (
-            type(self),
-            self.address,
-            self.type
-        )
+        hash_values = (type(self), self.address, self.type)
         hash_string = "".join([str(v) for v in hash_values])
         return sha256(hash_string.encode("utf-8")).hexdigest()
-
-    
 
 
 class Call(CorrespondenceBase):

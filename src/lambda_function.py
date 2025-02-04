@@ -1,20 +1,14 @@
-import json
 import os
 from itertools import batched
 from urllib.parse import unquote_plus
 
 import boto3
-from aws_lambda_powertools import Logger, Metrics
-from aws_lambda_powertools.utilities import parameters
+from aws_lambda_powertools import Logger, Metrics, Tracer
 from aws_lambda_powertools.utilities.data_classes import S3Event, event_source
 from aws_lambda_powertools.utilities.typing import LambdaContext
-from botocore.config import Config
-from mypy_boto3_dynamodb import DynamoDBClient
 from mypy_boto3_dynamodb.service_resource import DynamoDBServiceResource
 from mypy_boto3_s3 import S3Client
-from mypy_boto3_s3.service_resource import (Bucket, BucketObjectsCollection,
-                                            S3ServiceResource)
-from aws_lambda_powertools import Tracer
+from mypy_boto3_s3.service_resource import S3ServiceResource
 
 from backup_processor import BackupRestoreProcessor
 
@@ -22,41 +16,17 @@ tracer = Tracer()
 logger = Logger()
 metrics = Metrics(namespace="sms-backup-restore")
 
-endpoint_url="http://192.168.103.69:9000"
 
-s3_client: S3Client = boto3.client(
-    "s3",
-    region_name="us-east-1",
-    endpoint_url=endpoint_url,
-    verify=False,
-    aws_access_key_id="9ydf9jGSXrYziVG6",
-    aws_secret_access_key="a2nPFiwWqvH1161WYwYNJODf1hHI8cCc",
-)
-s3_resource: S3ServiceResource = boto3.resource(
-    "s3",
-    region_name="us-east-1",
-    endpoint_url=endpoint_url,
-    verify=False,
-    aws_access_key_id="9ydf9jGSXrYziVG6",
-    aws_secret_access_key="a2nPFiwWqvH1161WYwYNJODf1hHI8cCc",
-)
-endpoint_url ="http://192.168.103.69:8000"
-dynamodb_resource: DynamoDBServiceResource = boto3.resource(
-    "dynamodb",
-    region_name="us-east-1",
-    endpoint_url=endpoint_url,
-    verify=False,
-    aws_access_key_id="9ydf9jGSXrYziVG6",
-    aws_secret_access_key="a2nPFiwWqvH1161WYwYNJODf1hHI8cCc",
-)
+s3_client: S3Client = boto3.client("s3")
+s3_resource: S3ServiceResource = boto3.resource("s3")
+dynamodb_resource: DynamoDBServiceResource = boto3.resource("dynamodb")
 
 DYNAMODB_TABLE = os.environ.get("DYNAMODB_TABLE", "sms-backup-restore")
 
 
-
 @tracer.capture_lambda_handler
 @metrics.log_metrics(capture_cold_start_metric=True)
-@event_source(data_class=S3Event)
+@event_source(data_class=S3Event)  # pylint: disable=no-value-for-parameter
 def handler(event: S3Event, context: LambdaContext) -> None:
     """Lambda function to handle S3 events"""
 

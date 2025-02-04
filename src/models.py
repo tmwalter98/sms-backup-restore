@@ -2,8 +2,19 @@ import enum
 import uuid
 from typing import List, Optional
 
-from sqlalchemy import (UUID, Boolean, Column, DateTime, Enum, ForeignKey,
-                        Integer, String, Table, UniqueConstraint, event)
+from sqlalchemy import (
+    UUID,
+    Boolean,
+    Column,
+    DateTime,
+    Enum,
+    ForeignKey,
+    Integer,
+    String,
+    Table,
+    UniqueConstraint,
+    event,
+)
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import Mapped, mapped_column, relationship

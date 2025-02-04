@@ -3,8 +3,14 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 import phonenumbers
-from pydantic import (BaseModel, Field, GetCoreSchemaHandler, field_validator,
-                      model_validator, root_validator)
+from pydantic import (
+    BaseModel,
+    Field,
+    GetCoreSchemaHandler,
+    field_validator,
+    model_validator,
+    root_validator,
+)
 from pydantic_core import CoreSchema, core_schema
 
 

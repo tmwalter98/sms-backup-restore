@@ -6,14 +6,12 @@ from typing import Any, Dict, List
 import boto3
 
 import schemas
-from models import (MMS, SMS, Address, Call, Part, metadata,
-                    mms_address_association)
+from models import MMS, SMS, Address, Call, Part, metadata, mms_address_association
 from utils import S3XMLTagIterator, replace_null_with_none, upload_s3
 
 logger = Logger()
 
 s3_client = boto3.client("s3")
-
 
 
 @logger.inject_lambda_context

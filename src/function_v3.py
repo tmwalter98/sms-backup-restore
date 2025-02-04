@@ -27,8 +27,7 @@ from sqlalchemy.orm import sessionmaker
 
 import schemas_v2 as schemas
 from schemas_v2 import MMS, SMS, Address, Call, Part
-from utils import (S3XMLTagIterator, replace_null_with_none, upload_s3,
-                   upload_s3_minio)
+from utils import S3XMLTagIterator, replace_null_with_none, upload_s3, upload_s3_minio
 
 logger = Logger()
 

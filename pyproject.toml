@@ -15,7 +15,7 @@ boto3 = "^1.28.9"
 boto3-stubs = {extras = ["dynamodb", "s3"], version = "^1.36.10"}
 pydantic = "^2.0.3"
 pydantic-extra-types = "^2.0.0"
-aws-lambda-powertools = {extras = ["tracer"], version = "^3.5.0"}
+aws-lambda-powertools = {extras = ["all"], version = "^3.5.0"}
 lxml = "^4.9.3"
 phonenumbers = "^8.13.17"
 minio = "^7.2.0"
@@ -31,15 +31,17 @@ pyarrow = "^15.0.2"
 
 [tool.poetry.group.dev.dependencies]
 flake8 = "^7.0.0"
-black = "^23.12.1"
 isort = "^5.13.2"
+black = {extras = ["jupyter"], version = "^25.1.0"}
 flake8-pyproject = "^1.2.3"
 ipykernel = "^6.27.1"
 ipywidgets = "^8.1.5"
 tqdm = "^4.67.1"
 redis = "^5.2.1"
+pre-commit = "^4.1.0"
+aws-lambda-powertools = {extras = ["aws-sdk"], version = "^3.5.0"}
 
-[tool.poetry.group.test.dependencies]  
+[tool.poetry.group.test.dependencies]
 pytest = "^8.3.4"
 moto = {extras = ["dynamodb", "s3"], version = "^5.0.27"}
 
