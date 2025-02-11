@@ -29,9 +29,9 @@ class SMSBackupRestoreStack(Stack):
             sort_key=dynamodb.Attribute(
                 name="timestamp", type=dynamodb.AttributeType.NUMBER
             ),
-            billing=dynamodb.Billing.provisioned(
-                read_capacity=dynamodb.Capacity.autoscaled(max_capacity=1000),
-                write_capacity=dynamodb.Capacity.autoscaled(max_capacity=1000),
+            billing=dynamodb.Billing.on_demand(
+                max_read_request_units=dynamodb.Capacity.autoscaled(max_capacity=1000),
+                max_write_request_units=dynamodb.Capacity.autoscaled(max_capacity=1000),
             ),
             removal_policy=RemovalPolicy.RETAIN,
         )
