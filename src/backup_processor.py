@@ -17,6 +17,7 @@ BUCKET_NAME = "sms-backup-restore"
 
 
 class BackupRestoreProcessor:
+    """Class to handle streaming and processing of backup from S3"""
 
     def __init__(
         self, s3_client: S3ServiceResource, s3_resource: DynamoDBServiceResource
@@ -27,7 +28,18 @@ class BackupRestoreProcessor:
     def tag_object(
         self, bucket_name: str, object_key: str, tags: Dict[str, Any]
     ) -> None:
-        """Tags object with k,v pair tags"""
+        """
+        Adds key-value pair tags to an object in an S3 bucket.
+
+        Args:
+            bucket_name (str): The name of the S3 bucket.
+            object_key (str): The key of the object to tag.
+            tags (Dict[str, Any]): A dictionary of tags where keys are tag names
+                                and values are tag values.
+
+        Returns:
+            None
+        """
         tag_set = [{"Key": k, "Value": str(v)} for k, v in tags.items()]
         self._s3_client.put_object_tagging(
             Bucket=bucket_name,
@@ -35,8 +47,33 @@ class BackupRestoreProcessor:
             Tagging={"TagSet": tag_set},
         )
 
+    def upload_part_s3(
+        self, bucket_name: str, part_data: str, part_content_type: str
+    ) -> str:
+        """
+        Uploads a part to an S3 bucket if it does not already exist.
+
+        Args:
+            bucket_name (str): The name of the S3 bucket.
+            part_data (str): Base64-encoded string representing the part data.
+            part_content_type (str): The content type of the part being uploaded.
+
+        Returns:
+            str: The SHA-256 hash of the decoded part data, used as the object key.
+        """
+        data = base64.b64decode(part_data)
+        data_sha256 = sha256(data).hexdigest()
+        key = f"parts/{data_sha256}"
+        try:
+            self._s3_client.head_object(Bucket=bucket_name, Key=key)
+        except self._s3_client.exceptions.ClientError:
+            self._s3_client.put_object(
+                Bucket=bucket_name, Key=key, ContentType=part_content_type
+            )
+        return data_sha256
+
     def process_tag(self, bucket: Bucket, elem: Element) -> CorrespondenceBase:
-        """Processes XML tag.  Uploading object data for MMS parts"""
+        """Processes XML tag.  Uploading object data for MMS parts."""
         e_data = replace_null_with_none(dict(elem.attrib))
 
         match elem.tag:
@@ -54,18 +91,12 @@ class BackupRestoreProcessor:
                     if part["ct"] not in ["application/smil", "text/plain"] and bool(
                         part["data"]
                     ):
-                        data = base64.b64decode(part["data"])
-                        data_sha256 = sha256(data).hexdigest()
-                        key = f"parts/{data_sha256}"
-                        try:
-                            self._s3_client.head_object(Bucket=BUCKET_NAME, Key=key)
-                        except Exception:
-                            bucket.put_object(
-                                Body=data, Key=key, ContentType=part["ct"]
-                            )
-
-                        part["data"] = data_sha256
-                        assert part["data"] == data_sha256
+                        object_hash = self.upload_part_s3(
+                            bucket_name=bucket.name,
+                            part_data=part["data"],
+                            part_content_type=part["ct"],
+                        )
+                        part["data"] = object_hash
                     parts1.append(part)
 
                 addrs = [
