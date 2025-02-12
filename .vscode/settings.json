@@ -5,7 +5,12 @@
         "editor.formatOnSave": true
     },
     "yaml.schemas": {
-        "file:///Users/tmwalter98/.vscode/extensions/docsmsft.docs-yaml-1.0.5/dist/toc.schema.json": "/toc\\.yml/i",
         "https://raw.githubusercontent.com/awslabs/goformation/master/schema/cloudformation.schema.json": "file:///Users/tmwalter98/Developer/sms-backup-restore/template.yaml"
+    },
+    "files.exclude": {
+        ".poetry": true,
+        ".pytest_cache": true,
+        "**/__pycache__": true,
+        ".vscode": true
     }
 }
