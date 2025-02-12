@@ -6,6 +6,7 @@ from typing import Any, Dict, FrozenSet, List, Optional
 import phonenumbers
 from pydantic import (
     BaseModel,
+    BeforeValidator,
     Field,
     PlainSerializer,
     computed_field,
@@ -39,6 +40,17 @@ def phone_number_validator(v: str) -> str:
     return v
 
 
+def ensure_phone_number_sorted_list(value: Any) -> List[str]:
+    if isinstance(value, str):
+        return sorted(
+            [phone_number_validator(v) for v in value.split("~") if len(v) > 0]
+        )
+    elif isinstance(value, list):
+        return sorted([phone_number_validator(v) for v in value])
+    else:
+        return []
+
+
 class HashableBaseModel(BaseModel):
     """Base model that enforces hashability."""
 
@@ -51,17 +63,7 @@ class CorrespondenceBase(HashableBaseModel):
     """Base model for correspondence records like SMS, MMS, and Calls."""
 
     timestamp: StringSerializedDatetime = Field(validation_alias="date")
-
-    @computed_field
-    @property
-    def record_type(self) -> str:
-        """Defines the record type, must be implemented in subclasses."""
-        raise NotImplementedError("Subclass needs to define this.")
-
-    class Config:
-        from_attributes = True
-        extra = "ignore"
-        frozen = True
+    address: Annotated[FrozenSet[str], BeforeValidator(ensure_phone_number_sorted_list)]
 
     @model_validator(mode="before")
     @classmethod
@@ -102,12 +104,27 @@ class CorrespondenceBase(HashableBaseModel):
             )
         return values
 
+    @computed_field
+    @property
+    def record_type(self) -> str:
+        """Defines the record type, must be implemented in subclasses."""
+        raise NotImplementedError("Subclass needs to define this.")
+
+    class Config:
+        from_attributes = True
+        extra = "ignore"
+        frozen = True
+
+    @field_serializer("address", when_used="always")
+    def serialize_address_frozenset(self, address: FrozenSet[str]) -> List[str]:
+        """Returns address FrozenSet as list"""
+        return list(address)
+
 
 class SMS(CorrespondenceBase):
     """Represents an SMS message."""
 
     protocol: int
-    address: Optional[str]
     contact_name: Optional[str]
     type: int
     subject: Optional[str]
@@ -130,12 +147,6 @@ class SMS(CorrespondenceBase):
         """SMS Validator Config"""
 
         from_attributes = True
-
-    @field_validator("address", mode="before")
-    @classmethod
-    def validate_address(cls, v: str) -> List[str]:
-        """Replace contact name `(Unknown)` with `Null`."""
-        return phone_number_validator(v)
 
     @field_validator("contact_name", mode="before")
     @classmethod
@@ -223,7 +234,6 @@ class MMS(CorrespondenceBase):
     read_status: Optional[bool]
     seen: Optional[int]
     msg_box: Optional[int]
-    address: FrozenSet[str]
     sub_cs: Optional[str]
     resp_st: Optional[int]
     retr_st: Optional[str]
@@ -262,29 +272,15 @@ class MMS(CorrespondenceBase):
 
         from_attributes = True
 
-    @field_validator("address", mode="after")
-    @classmethod
-    def sorted_set_address(cls, addresses: List[str]) -> List[str]:
-        return sorted(addresses)
-
     @field_validator("parts", mode="after")
     @classmethod
     def sorted_set_parts(cls, parts: List[Part]) -> List[Part]:
+        """Ensures `parts` are sorted"""
         return sorted(parts)
 
-    @field_validator("address", mode="before")
-    @classmethod
-    def validate_address_list(cls, v: str) -> List[str]:
-        """Replace contact name `(Unknown)` with `Null`."""
-
-        return sorted([phone_number_validator(a) for a in v.split("~")])
-
-    @field_serializer("address", when_used="always")
-    def serialize_address_frozenset(self, address: FrozenSet[str]):
-        return list(address)
-
     @field_serializer("parts", when_used="always")
-    def serialize_parts_frozenset(self, parts: FrozenSet[str]):
+    def serialize_parts_frozenset(self, parts: FrozenSet[str]) -> List[str]:
+        """Return parts FrozenSet as a list"""
         return list(parts)
 
     def hash(self):
@@ -335,7 +331,6 @@ class Address(HashableBaseModel):
 class Call(CorrespondenceBase):
     """Validator for Phone Calls"""
 
-    address: Optional[str]
     contact_name: Optional[str] = Field(exclude=True)
     duration: int
     type: int
@@ -353,12 +348,6 @@ class Call(CorrespondenceBase):
 
         extra = "ignore"
 
-    @field_validator("address", mode="before")
-    @classmethod
-    def validate_address(cls, v: str) -> List[str]:
-        """Replace contact name `(Unknown)` with `Null`."""
-        return phone_number_validator(v)
-
     @field_validator("contact_name", mode="before")
     @classmethod
     def set_unknown_contact_name_null(cls, v: str):
@@ -367,7 +356,8 @@ class Call(CorrespondenceBase):
 
     @model_validator(mode="before")
     @classmethod
-    def set_address_from_aliae(cls, data: Dict[str, Any]) -> Dict[str, Any]:
+    def set_address_from_alias(cls, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Use `number` if key in data, else use `address`."""
         data["address"] = data["number"] if "number" in data else data["address"]
         return data
 
