@@ -1,25 +1,22 @@
-name: Update Lambda with New Image
-
+name: Build Docker Image Push ECR, Update Lambda
 on:
   push:
-    branches:
-      - main
-
+    branches: [main]
+  workflow_dispatch:
 jobs:
-  deploy:
+  build-image-deploy:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repository
+        id: checkout-repository
         uses: actions/checkout@v4
-
       - name: Configure 1Password Service Account
+        id: configure-op-sa
         uses: 1password/load-secrets-action/configure@v2
         with:
           service-account-token: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
-
       - name: Load credentials
-        id: load-credentials
+        id: load-op-credentials
         uses: 1password/load-secrets-action@v2
         with:
           export-env: false
@@ -29,29 +26,24 @@ jobs:
           AWS_REGION: ${{ vars.OP_VAULT_SECRET_PREFIX }}/AWS_REGION
           AWS_ECR_REGISTRY_URL: ${{ vars.OP_VAULT_SECRET_PREFIX }}/AWS_ECR_REGISTRY_URL
           LAMBDA_FUNCTION_NAME: ${{ vars.OP_VAULT_SECRET_PREFIX }}/LAMBDA_FUNCTION_NAME
-
       - name: Configure AWS credentials
         id: configure-aws-credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ steps.load-credentials.outputs.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ steps.load-credentials.outputs.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ steps.load-credentials.outputs.AWS_REGION }}
-
+          aws-access-key-id: ${{ steps.load-op-credentials.outputs.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ steps.load-op-credentials.outputs.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ steps.load-op-credentials.outputs.AWS_REGION }}
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
-
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
         with:
           platforms: arm64
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
         with:
           platforms: linux/arm64
-
       - name: Cache Docker layers
         uses: actions/cache@v4
         with:
@@ -59,12 +51,11 @@ jobs:
           key: ${{ runner.os }}-buildx-${{ github.sha }}
           restore-keys: |
             ${{ runner.os }}-buildx-
-
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ steps.load-credentials.outputs.AWS_ECR_REGISTRY_URL }}
+          images: ${{ steps.load-op-credentials.outputs.AWS_ECR_REGISTRY_URL }}
           context: git
           flavor: |
             latest=true
@@ -74,7 +65,6 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}
             type=sha,format=long,prefix=
-
       - name: Build and push
         id: docker-build-push
         uses: docker/build-push-action@v6
@@ -89,13 +79,12 @@ jobs:
           cache-from: type=local,src=${{ runner.temp }}/.buildx-cache
           cache-to: type=local,dest=${{ runner.temp }}/.buildx-cache-new,mode=max
           provenance: false
-
       - name: Update Lambda function
         id: update-lambda-image
         uses: appleboy/lambda-action@v0.2.0
         with:
-          aws_access_key_id: ${{ steps.load-credentials.outputs.AWS_ACCESS_KEY_ID }}
-          aws_secret_access_key: ${{ steps.load-credentials.outputs.AWS_SECRET_ACCESS_KEY }}
-          aws_region: ${{ steps.load-credentials.outputs.AWS_REGION }}
-          function_name: ${{ steps.load-credentials.outputs.LAMBDA_FUNCTION_NAME }}
-          image_uri: ${{ steps.load-credentials.outputs.AWS_ECR_REGISTRY_URL }}:${{ github.sha }}
+          aws_access_key_id: ${{ steps.load-op-credentials.outputs.AWS_ACCESS_KEY_ID }}
+          aws_secret_access_key: ${{ steps.load-op-credentials.outputs.AWS_SECRET_ACCESS_KEY }}
+          aws_region: ${{ steps.load-op-credentials.outputs.AWS_REGION }}
+          function_name: ${{ steps.load-op-credentials.outputs.LAMBDA_FUNCTION_NAME }}
+          image_uri: ${{ steps.load-op-credentials.outputs.AWS_ECR_REGISTRY_URL }}:${{ github.sha }}
