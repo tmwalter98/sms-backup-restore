@@ -207,7 +207,6 @@ class SMSBackupRestoreDynamoDB(Construct):
                     ],
                     resources=[
                         self.dynamodb_table.table_arn,
-                        self.dynamodb_table.table_stream_arn,
                     ],
                 ),
                 iam.PolicyStatement(
