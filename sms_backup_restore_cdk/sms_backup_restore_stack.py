@@ -162,7 +162,7 @@ class SMSBackupRestoreDynamoDB(Construct):
                 name="id", type=dynamodb.AttributeType.STRING
             ),
             sort_key=dynamodb.Attribute(
-                name="timestamp", type=dynamodb.AttributeType.NUMBER
+                name="timestamp", type=dynamodb.AttributeType.STRING
             ),
             billing=dynamodb.Billing.on_demand(
                 max_read_request_units=1000,
@@ -271,7 +271,12 @@ class SMSBackupRestoreStack(Stack):
             ephemeral_storage_size=Size.mebibytes(1024),
             application_log_level_v2=_lambda.ApplicationLogLevel.INFO,
             code=_lambda.DockerImageCode.from_ecr(ecr_repository_node.ecr_repository),
-            environment={"DYNAMODB_TABLE": dynamodb_node.dynamodb_table.table_name},
+            environment={
+                "DYNAMODB_TABLE": dynamodb_node.dynamodb_table.table_name,
+                "POWERTOOLS_SERVICE_NAME": "sms-backup-restore",
+                "POWERTOOLS_METRICS_NAMESPACE": "sms-backup-restore",
+                "ENV": "prod",
+            },
             timeout=Duration.minutes(15),
             tracing=_lambda.Tracing.PASS_THROUGH,
             logging_format=_lambda.LoggingFormat.JSON,
