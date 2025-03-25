@@ -63,7 +63,6 @@ def process_s3_backup(event: S3EventBridgeNotificationEvent):
     logger.info(f"Writing {len(records)} records")
     batches = list(batched(records.values(), 25))
     for batch in batches:
-        print(batch)
         put_requests = [{"PutRequest": {"Item": e}} for e in batch]
         dynamodb_resource.batch_write_item(
             RequestItems={"sms-backup-restore": put_requests}
