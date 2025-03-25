@@ -21,6 +21,7 @@ phonenumbers = "^8.13.17"
 minio = "^7.2.0"
 smart-open = {extras = ["s3"], version = "^6.4.0"}
 pandas = "^2.2.1"
+aws-xray-sdk = "^2.14.0"
 
 [tool.poetry.group.old.dependencies]
 SQLAlchemy = "^2.0.19"
